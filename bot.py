@@ -44,7 +44,7 @@ client = Client()
 async def on_message(message):
     if message.content.startswith('!ks'):
         progress = Progress(KS_URL)
-        msg = progress.bar(40)
+        msg = "`%s`" % progress.bar(40)
         await client.send_message(message.channel, msg)
 
 @client.event
