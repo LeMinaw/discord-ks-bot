@@ -1,16 +1,18 @@
-from discord import Client
+from discord import Client, Object
 from urllib.request import urlopen
+import asyncio
 import re
 
 
 KS_URL = "https://www.kickstarter.com/projects/skywanderers/skywanderers" # Url to the Kickstarter page
 KS_GOALS = [50000] # Kickstarter goal detected automatically. This is only for supplementary goals.
-DEBUG = False
+DISCORD_CHANNELS = [241014195884130315, 271382095383887872]
+DEBUG = True
 
 class Progress():
-    """Kickstarter progress object."""
     def __init__(self, url, goals=[]):
-        """Inits a Progress object from a kickstarter page URL."""
+        self.kwargs = {'url':url, 'goals':goals}
+
         page = urlopen(url).read().decode()
         reg_goal    = re.compile(r'data-goal="([0-9]+).[0-9]+"', re.M)
         reg_pledged = re.compile(r'data-pledged="([0-9]+).[0-9]+"', re.M)
@@ -27,7 +29,6 @@ class Progress():
 
     @property
     def goal(self):
-        """Returns the next goal to achieve."""
         for goal in self.goals:
             if goal > self.pledged:
                 return goal
@@ -35,7 +36,6 @@ class Progress():
 
     @property
     def goal_nb(self):
-        """Returns the current goal number."""
         for i, goal in enumerate(self.goals):
             if goal == self.goal:
                 return i + 1
@@ -43,36 +43,48 @@ class Progress():
 
     @property
     def goals_cleared(self):
-        """Returns the list of all cleared goals."""
         return [goal for goal in self.goals if self.pledged > goal]
 
     @property
     def goals_uncleared(self):
-        """Returns the list of all uncleared goals."""
         return [goal for goal in self.goals if self.pledged < goal]
 
     @property
+    def goals_cleared_nb(self):
+        return len(self.goals_cleared)
+
+    @property
+    def goals_uncleared_nb(self):
+        return len(self.goals_uncleared)
+
+    @property
     def percent(self):
-        """Returns the percentage of funding acomplished at this time."""
         return int(self.pledged / self.goal * 100)
 
     @property
+    def percent_remaining(self):
+        return 100 - self.percent
+
+    @property
+    def elapsed(self):
+        return self.duration - self.remaining
+
+    @property
     def per_back(self):
-        """Returns the average funds gained per back."""
         return self.pledged / self.backers
 
     @property
     def per_hour(self):
-        """Returns the average funds gained per hour."""
-        return self.pledged / (self.duration - self.remaining)
+        return self.pledged / self.elapsed
 
     @property
     def eta(self):
-        """Gives an innacurate estimate of the funds at the end."""
         return self.per_hour * self.duration
 
-    def bar(self, size=20):
-        """Computes a progress bar of arbitrary size."""
+    def refresh(self):
+        self.__init__(**self.kwargs)
+
+    def display_bar(self, size=20):
         bar = ''
         full_chars_nb = int(self.percent / 100 * size)
         if size % 2 != 0:
@@ -86,12 +98,10 @@ class Progress():
                 bar += '-'
         return "Kickstarter progress: [%s] (%s/%s, goal #%s)" % (bar, self.pledged, self.goal, self.goal_nb)
 
-    def info(self):
-        """Returns Kickstarter information."""
-        return "Kickstarter information:\n    Progress: %s%% done, %s%% to go, goal #%s.\n    Funds: %s pledged, current goal %s.\n    Goals: %s cleared, %s remaining.\n    Backers: %s, per-back avg %.2f.\n    Time: %s elapsed hours, %s hours remaining.\n    Per-hour avg: %.2f.\n    Estimated end funds: %d." % (self.percent, 100-self.percent, self.goal_nb, self.pledged, self.goal, len(self.goals_cleared), len(self.goals)-len(self.goals_cleared), self.backers, self.per_back, self.duration-self.remaining, self.remaining, self.per_hour, self.eta)
+    def display_info(self):
+        return "Kickstarter information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.".format(s=self)
 
-    def listgoals(self):
-        """Returns Kickstarter goals."""
+    def display_goals(self):
         msg = ''
         for goal in self.goals_cleared:
             msg += "\n    %s [CLEARED!]" % goal
@@ -103,24 +113,45 @@ class Progress():
         return "Kickstarter goals:%s" % msg
 
 
+async def check_ks(progress, chans_ids, delay=60):
+    await client.wait_until_ready()
+
+    progress.refresh()
+    oldProgress = progress.percent
+
+    while not client.is_closed:
+        progress.refresh()
+        if progress.percent > oldProgress:
+            for chan_id in chans_ids:
+                channel = Object(id=chan_id)
+                msg = "One percent closer !\n`%s`" % progress.display_bar(40)
+                await client.send_message(channel, msg)
+                await asyncio.sleep(delay) # task runs every 60 seconds
+            oldProgress = progress.percent
+
+
 client = Client()
+progress = Progress(KS_URL, KS_GOALS)
 
 @client.event
 async def on_message(message):
     if message.content.startswith('!ks'):
-        progress = Progress(KS_URL, KS_GOALS)
-        if message.content.startswith('!ks more'):
-            msg = "`!ks more` is obsolete. Please use `!ks info` or `!ks all`."
-        elif message.content.startswith('!ks goals'):
-            msg = "```%s```" % progress.listgoals()
-        elif message.content.startswith('!ks info'):
-            msg = "```%s```" % progress.info()
-        elif message.content.startswith('!ks all'):
-            msg = "```%s\n\n%s\n\n%s```" % (progress.bar(20), progress.listgoals(), progress.info())
-        elif message.content.startswith('!ks help'):
-            msg = "```Kickstarter commands:\n    !ks\n    !ks goals\n    !ks info\n    !ks all\n    !ks help```"
+        progress.refresh()
+        if message.content == '!ks':
+            msg = "`%s`" % progress.display_bar(40)
         else:
-            msg = "`%s`" % progress.bar(40)
+            if message.content.startswith('!ks more'):
+                msg = "`!ks more` is obsolete. Please use `!ks info` or `!ks all`."
+            elif message.content.startswith('!ks goals'):
+                msg = "```%s```" % progress.display_goals()
+            elif message.content.startswith('!ks info'):
+                msg = "```%s```" % progress.display_info()
+            elif message.content.startswith('!ks all'):
+                msg = "```%s\n\n%s\n\n%s```" % (progress.display_bar(20), progress.display_goals(), progress.display_info())
+            elif message.content.startswith('!ks help'):
+                msg = "```Kickstarter commands:\n    !ks\n    !ks goals\n    !ks info\n    !ks all\n    !ks help```"
+            else:
+                msg = "Unknown command `%s`. Please see `!ks help`." % message.content
         await client.send_message(message.channel, msg)
 
 @client.event
@@ -130,11 +161,11 @@ async def on_ready():
     print(client.user.id)
     print('------')
 
+client.loop.create_task(check_ks(progress, DISCORD_CHANNELS, 60))
 
 if DEBUG:
-    progress = Progress(KS_URL, KS_GOALS)
-    print(progress.bar(60))
-    print(progress.listgoals())
-    print(progress.info())
+    print(progress.display_bar(60))
+    print(progress.display_goals())
+    print(progress.display_info())
 else:
     client.run('MzUyMzU0NTc2MjI3MTA2ODE2.DIf7fQ.EvhOV3JoZkx6FSOJF3I28r3RtUw')
