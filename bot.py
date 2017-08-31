@@ -18,8 +18,8 @@ class Progress():
         reg_duration = re.compile(r'data-duration="([0-9]+)"', re.M)
         reg_remaining = re.compile(r'data-hours-remaining="([0-9]+)"', re.M)
 
-        goals.append(int(reg_goal.search(page).group(1)))
-        self.goals = sorted(goals)
+        self.goals = [int(reg_goal.search(page).group(1))] + goals
+        self.goals.sort()
         self.pledged = int(reg_pledged.search(page).group(1))
         self.backers = int(reg_backers.search(page).group(1))
         self.duration = int(reg_duration.search(page).group(1)) * 24 # Duration is provided in days
@@ -45,6 +45,11 @@ class Progress():
     def goals_cleared(self):
         """Returns the list of all cleared goals."""
         return [goal for goal in self.goals if self.pledged > goal]
+
+    @property
+    def goals_uncleared(self):
+        """Returns the list of all uncleared goals."""
+        return [goal for goal in self.goals if self.pledged < goal]
 
     @property
     def percent(self):
@@ -85,6 +90,18 @@ class Progress():
         """Returns full Kickstarter information."""
         return "Kickstarter full info:\n    Progress: %s%% done, %s%% to go, goal #%s.\n    Funds: %s pledged, current goal %s.\n    Goals: %s cleared, %s remaining.\n    Backers: %s, per-back avg %.2f.\n    Time: %s elapsed hours, %s hours remaining.\n    Per-hour avg: %.2f.\n    Estimated end funds: %d." % (self.percent, 100-self.percent, self.goal_nb, self.pledged, self.goal, len(self.goals_cleared), len(self.goals)-len(self.goals_cleared), self.backers, self.per_back, self.duration-self.remaining, self.remaining, self.per_hour, self.eta)
 
+    def listgoals(self):
+        """Returns Kickstarter goals."""
+        msg = ''
+        for goal in self.goals_cleared:
+            msg += "\n    %s [CLEARED!]" % goal
+        for goal in self.goals_uncleared:
+            if goal == self.goal:
+                msg += "\n    %s [PROGRESS (%s%%)]" % (goal, self.percent)
+                continue
+            msg += "\n    %s" % goal
+        return "Kickstarter goals:%s" % msg
+
 
 client = Client()
 
@@ -94,6 +111,8 @@ async def on_message(message):
         progress = Progress(KS_URL, KS_GOALS)
         if message.content.startswith('!ks more'):
             msg = "```%s\n\n%s```" % (progress.bar(20), progress.fullinfo())
+        elif message.content.startswith('!ks goals'):
+            msg = "```%s```" % progress.listgoals()
         else:
             msg = "`%s`" % progress.bar(40)
         await client.send_message(message.channel, msg)
@@ -110,5 +129,6 @@ if DEBUG:
     progress = Progress(KS_URL, KS_GOALS)
     print(progress.bar(60))
     print(progress.fullinfo())
+    print(progress.listgoals())
 else:
     client.run('MzUyMzU0NTc2MjI3MTA2ODE2.DIf7fQ.EvhOV3JoZkx6FSOJF3I28r3RtUw')
