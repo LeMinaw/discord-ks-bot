@@ -86,9 +86,9 @@ class Progress():
                 bar += '-'
         return "Kickstarter progress: [%s] (%s/%s, goal #%s)" % (bar, self.pledged, self.goal, self.goal_nb)
 
-    def fullinfo(self):
-        """Returns full Kickstarter information."""
-        return "Kickstarter full info:\n    Progress: %s%% done, %s%% to go, goal #%s.\n    Funds: %s pledged, current goal %s.\n    Goals: %s cleared, %s remaining.\n    Backers: %s, per-back avg %.2f.\n    Time: %s elapsed hours, %s hours remaining.\n    Per-hour avg: %.2f.\n    Estimated end funds: %d." % (self.percent, 100-self.percent, self.goal_nb, self.pledged, self.goal, len(self.goals_cleared), len(self.goals)-len(self.goals_cleared), self.backers, self.per_back, self.duration-self.remaining, self.remaining, self.per_hour, self.eta)
+    def info(self):
+        """Returns Kickstarter information."""
+        return "Kickstarter information:\n    Progress: %s%% done, %s%% to go, goal #%s.\n    Funds: %s pledged, current goal %s.\n    Goals: %s cleared, %s remaining.\n    Backers: %s, per-back avg %.2f.\n    Time: %s elapsed hours, %s hours remaining.\n    Per-hour avg: %.2f.\n    Estimated end funds: %d." % (self.percent, 100-self.percent, self.goal_nb, self.pledged, self.goal, len(self.goals_cleared), len(self.goals)-len(self.goals_cleared), self.backers, self.per_back, self.duration-self.remaining, self.remaining, self.per_hour, self.eta)
 
     def listgoals(self):
         """Returns Kickstarter goals."""
@@ -110,9 +110,15 @@ async def on_message(message):
     if message.content.startswith('!ks'):
         progress = Progress(KS_URL, KS_GOALS)
         if message.content.startswith('!ks more'):
-            msg = "```%s\n\n%s```" % (progress.bar(20), progress.fullinfo())
+            msg = "`!ks more` is obsolete. Please use `!ks info` or `!ks all`."
         elif message.content.startswith('!ks goals'):
             msg = "```%s```" % progress.listgoals()
+        elif message.content.startswith('!ks info'):
+            msg = "```%s```" % progress.info()
+        elif message.content.startswith('!ks all'):
+            msg = "```%s\n\n%s\n\n%s```" % (progress.bar(20), progress.listgoals(), progress.info())
+        elif message.content.startswith('!ks help'):
+            msg = "```Kickstarter commands:\n    !ks\n    !ks goals\n    !ks info\n    !ks all\n    !ks help```"
         else:
             msg = "`%s`" % progress.bar(40)
         await client.send_message(message.channel, msg)
@@ -128,7 +134,7 @@ async def on_ready():
 if DEBUG:
     progress = Progress(KS_URL, KS_GOALS)
     print(progress.bar(60))
-    print(progress.fullinfo())
     print(progress.listgoals())
+    print(progress.info())
 else:
     client.run('MzUyMzU0NTc2MjI3MTA2ODE2.DIf7fQ.EvhOV3JoZkx6FSOJF3I28r3RtUw')
