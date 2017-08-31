@@ -126,8 +126,8 @@ async def check_ks(progress, chans_ids, delay=60):
                 channel = Object(id=chan_id)
                 msg = "One percent closer !\n`%s`" % progress.display_bar(40)
                 await client.send_message(channel, msg)
-                await asyncio.sleep(delay) # task runs every 60 seconds
             oldProgress = progress.percent
+        await asyncio.sleep(delay) # task runs every 60 seconds
 
 
 client = Client()
