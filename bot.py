@@ -7,7 +7,7 @@ import re
 KS_URL = "https://www.kickstarter.com/projects/skywanderers/skywanderers" # Url to the Kickstarter page
 KS_GOALS = [50000] # Kickstarter goal detected automatically. This is only for supplementary goals.
 DISCORD_CHANNELS = [241014195884130315, 271382095383887872]
-DEBUG = True
+DEBUG = False
 
 class Progress():
     def __init__(self, url, goals=[]):
