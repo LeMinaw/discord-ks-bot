@@ -109,7 +109,7 @@ class Progress():
         return "{s.title} progress: [{bar}] ({s.pledged}/{s.goal}, goal #{s.goal_nb})".format(bar=bar, s=self)
 
     def display_info(self):
-        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.\n    Kickstarter comission: {s.comission} ({s.comission_percent}%)".format(s=self)
+        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.\n    Kickstarter comission: {s.comission} ({s.comission_percent:.2f}%)".format(s=self)
 
     def display_goals(self):
         msg = ''
