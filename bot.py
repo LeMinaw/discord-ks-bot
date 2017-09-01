@@ -7,7 +7,7 @@ import re
 KS_URL = "https://www.kickstarter.com/projects/skywanderers/skywanderers" # Url to the Kickstarter page
 KS_GOALS = [50000] # Kickstarter goal detected automatically. This is only for supplementary goals.
 DISCORD_CHANNELS = [241014195884130315, 271382095383887872]
-DEBUG = False
+DEBUG = True
 
 class Progress():
     def __init__(self, url, goals=[]):
@@ -23,7 +23,7 @@ class Progress():
         reg_remaining = re.compile(r'data-hours-remaining="([0-9]+)"', re.M)
 
         self.title    = reg_title.search(page).group(1)
-        self.currency = reg_currency.search(page).group(1)
+        self.currency = reg_currency.search(page).group(1).upper()
         self.goals = [int(reg_goal.search(page).group(1))] + goals
         self.goals.sort()
         self.pledged   = int(reg_pledged.search(page).group(1))
@@ -37,14 +37,14 @@ class Progress():
             'per_back_fixed': 0.20
         }
 
-        if self.currency == 'hkd' or self.currency = 'sgd':
+        if self.currency == 'HKD' or self.currency == 'SGD':
             self.comissions['per_back_percent'] = 4.0
 
-        elif self.currency == 'mxd':
+        elif self.currency == 'MXD':
             self.comissions['per_back_percent'] = 4.0
             self.comissions['per_back_fixed'] = 0.60
 
-        elif self.currency == 'nok' or self.currency = 'sek':
+        elif self.currency == 'NOK' or self.currency == 'SEK':
             self.comissions['per_back_fixed'] = 0.30
 
     @property
@@ -127,7 +127,7 @@ class Progress():
         return "{s.title} progress: [{bar}] ({s.pledged}/{s.goal}, goal #{s.goal_nb})".format(bar=bar, s=self)
 
     def display_info(self):
-        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.\n    Kickstarter comission: {s.comission:.0f} ({s.comission_percent:.2f}%)".format(s=self)
+        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.\n    Kickstarter comission: {s.comission:.0f} ({s.comission_percent:.2f}%)\n    Currency: {s.currency}".format(s=self)
 
     def display_goals(self):
         msg = ''
