@@ -7,7 +7,7 @@ import re
 KS_URL = "https://www.kickstarter.com/projects/skywanderers/skywanderers" # Url to the Kickstarter page
 KS_GOALS = [50000] # Kickstarter goal detected automatically. This is only for supplementary goals.
 DISCORD_CHANNELS = [241014195884130315, 271382095383887872]
-DEBUG = False
+DEBUG = True
 
 class Progress():
     def __init__(self, url, goals=[]):
@@ -15,19 +15,37 @@ class Progress():
 
         page = urlopen(url).read().decode()
         reg_title     = re.compile(r'"og:title" content="([-\w\s]+)"', re.M)
+        reg_currency  = re.compile(r'"money (\w+) project_currency_code"', re.M)
         reg_goal      = re.compile(r'data-goal="([0-9]+).[0-9]+"', re.M)
         reg_pledged   = re.compile(r'data-pledged="([0-9]+).[0-9]+"', re.M)
         reg_backers   = re.compile(r'data-backers-count="([0-9]+)"', re.M)
         reg_duration  = re.compile(r'data-duration="([0-9]+)"', re.M)
         reg_remaining = re.compile(r'data-hours-remaining="([0-9]+)"', re.M)
 
-        self.title = reg_title.search(page).group(1)
+        self.title    = reg_title.search(page).group(1)
+        self.currency = reg_currency.search(page).group(1).upper()
         self.goals = [int(reg_goal.search(page).group(1))] + goals
         self.goals.sort()
         self.pledged   = int(reg_pledged.search(page).group(1))
         self.backers   = int(reg_backers.search(page).group(1))
         self.duration  = int(reg_duration.search(page).group(1)) * 24 # Duration is provided in days
         self.remaining = int(reg_remaining.search(page).group(1))
+
+        self.comissions = {
+            'total_percent': 5.0,
+            'per_back_percent': 3.0,
+            'per_back_fixed': 0.20
+        }
+
+        if self.currency == 'HKD' or self.currency == 'SGD':
+            self.comissions['per_back_percent'] = 4.0
+
+        elif self.currency == 'MXD':
+            self.comissions['per_back_percent'] = 4.0
+            self.comissions['per_back_fixed'] = 0.60
+
+        elif self.currency == 'NOK' or self.currency == 'SEK':
+            self.comissions['per_back_fixed'] = 0.30
 
     @property
     def goal(self):
@@ -81,7 +99,7 @@ class Progress():
 
     @property
     def comission(self):
-        return self.pledged * (0.05 + 0.03) + self.backers * 0.20
+        return self.pledged * (self.comissions['total_percent']/100 + self.comissions['per_back_percent']/100) + self.backers * self.comissions['per_back_fixed']
 
     @property
     def comission_percent(self):
@@ -109,7 +127,7 @@ class Progress():
         return "{s.title} progress: [{bar}] ({s.pledged}/{s.goal}, goal #{s.goal_nb})".format(bar=bar, s=self)
 
     def display_info(self):
-        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.\n    Kickstarter comission: {s.comission} ({s.comission_percent:.2f}%)".format(s=self)
+        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.\n    Kickstarter comission: {s.comission:.0f} ({s.comission_percent:.2f}%)\n    Currency: {s.currency}".format(s=self)
 
     def display_goals(self):
         msg = ''
