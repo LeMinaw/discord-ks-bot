@@ -14,17 +14,19 @@ class Progress():
         self.kwargs = {'url':url, 'goals':goals}
 
         page = urlopen(url).read().decode()
-        reg_goal    = re.compile(r'data-goal="([0-9]+).[0-9]+"', re.M)
-        reg_pledged = re.compile(r'data-pledged="([0-9]+).[0-9]+"', re.M)
-        reg_backers = re.compile(r'data-backers-count="([0-9]+)"', re.M)
-        reg_duration = re.compile(r'data-duration="([0-9]+)"', re.M)
+        reg_title     = re.compile(r'"og:title" content="([-\w\s]+)"', re.M)
+        reg_goal      = re.compile(r'data-goal="([0-9]+).[0-9]+"', re.M)
+        reg_pledged   = re.compile(r'data-pledged="([0-9]+).[0-9]+"', re.M)
+        reg_backers   = re.compile(r'data-backers-count="([0-9]+)"', re.M)
+        reg_duration  = re.compile(r'data-duration="([0-9]+)"', re.M)
         reg_remaining = re.compile(r'data-hours-remaining="([0-9]+)"', re.M)
 
+        self.title = reg_title.search(page).group(1)
         self.goals = [int(reg_goal.search(page).group(1))] + goals
         self.goals.sort()
-        self.pledged = int(reg_pledged.search(page).group(1))
-        self.backers = int(reg_backers.search(page).group(1))
-        self.duration = int(reg_duration.search(page).group(1)) * 24 # Duration is provided in days
+        self.pledged   = int(reg_pledged.search(page).group(1))
+        self.backers   = int(reg_backers.search(page).group(1))
+        self.duration  = int(reg_duration.search(page).group(1)) * 24 # Duration is provided in days
         self.remaining = int(reg_remaining.search(page).group(1))
 
     @property
@@ -96,10 +98,10 @@ class Progress():
                 bar += '='
             else:
                 bar += '-'
-        return "Kickstarter progress: [%s] (%s/%s, goal #%s)" % (bar, self.pledged, self.goal, self.goal_nb)
+        return "{s.title} progress: [{bar}] ({s.pledged}/{s.goal}, goal #{s.goal_nb})".format(bar=bar, s=self)
 
     def display_info(self):
-        return "Kickstarter information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.".format(s=self)
+        return "{s.title} information:\n    Progress: {s.percent}% done, {s.percent_remaining}% to go, goal #{s.goal_nb}.\n    Funds: {s.pledged} pledged, current goal {s.goal}.\n    Goals: {s.goals_cleared_nb} cleared, {s.goals_uncleared_nb} remaining.\n    Backers: {s.backers}, per-back avg {s.per_back:.2f}.\n    Time: {s.elapsed} elapsed hours, {s.remaining} hours remaining.\n    Per-hour avg: {s.per_hour:.2f}.\n    Estimated end funds: {s.eta:.0f}.".format(s=self)
 
     def display_goals(self):
         msg = ''
@@ -110,7 +112,7 @@ class Progress():
                 msg += "\n    %s [PROGRESS (%s%%)]" % (goal, self.percent)
                 continue
             msg += "\n    %s" % goal
-        return "Kickstarter goals:%s" % msg
+        return "%s goals:%s" % (self.title, msg)
 
 
 async def check_ks(progress, chans_ids, delay=60):
