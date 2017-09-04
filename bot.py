@@ -1,6 +1,7 @@
 from discord import Client, Object
 from urllib.request import urlopen
 import asyncio
+from os import getenv
 import re
 
 
@@ -196,4 +197,4 @@ if DEBUG:
     print(progress.display_goals())
     print(progress.display_info())
 else:
-    client.run('MzUyMzU0NTc2MjI3MTA2ODE2.DIf7fQ.EvhOV3JoZkx6FSOJF3I28r3RtUw')
+    client.run(getenv('DISCORD_TOKEN'))
