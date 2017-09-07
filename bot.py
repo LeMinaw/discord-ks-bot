@@ -1,7 +1,8 @@
 from discord import Client, Object
+from collections import OrderedDict
 from urllib.request import urlopen
-import asyncio
 from os import getenv
+import asyncio
 import re
 
 
@@ -22,6 +23,8 @@ class Progress():
         reg_backers   = re.compile(r'data-backers-count="([0-9]+)"', re.M)
         reg_duration  = re.compile(r'data-duration="([0-9]+)"', re.M)
         reg_remaining = re.compile(r'data-hours-remaining="([0-9]+)"', re.M)
+        reg_t_titles  = re.compile(r'pledge__title">([-\w\s]+)<', re.M)
+        reg_t_backers = re.compile(r'pledge__backer-count">([-\w\s]+) backer', re.M)
 
         self.title    = reg_title.search(page).group(1)
         self.currency = reg_currency.search(page).group(1).upper()
@@ -31,6 +34,10 @@ class Progress():
         self.backers   = int(reg_backers.search(page).group(1))
         self.duration  = int(reg_duration.search(page).group(1)) * 24 # Duration is provided in days
         self.remaining = int(reg_remaining.search(page).group(1))
+
+        t_titles  = map(str.strip, reg_t_titles.findall(page))
+        t_backers = map(lambda x: int(str.strip(x)), reg_t_backers.findall(page))
+        self.tiers = OrderedDict(zip(t_titles, t_backers))
 
         self.comissions = {
             'total_percent': 5.0,
@@ -141,6 +148,18 @@ class Progress():
             msg += "\n    %s" % goal
         return "%s goals:%s" % (self.title, msg)
 
+    def display_tiers(self):
+        msg = ''
+
+        max_len_title = max(map(len, self.tiers))
+        max_len_backers = max(map(lambda x: len(str(x)), self.tiers.values()))
+
+        for title, backers in self.tiers.items():
+            pad_len = max_len_title - len(title) + max_len_backers - len(str(backers))
+            title += '.' * pad_len
+            msg += "\n    {0}.{1} ({2:.2f}%)".format(title, backers, backers/self.backers*100)
+        return "%s tiers:%s" % (self.title, msg)
+
 
 async def check_ks(progress, chans_ids, delay=60):
     await client.wait_until_ready()
@@ -152,11 +171,11 @@ async def check_ks(progress, chans_ids, delay=60):
         progress.refresh()
         if progress.percent > oldProgress:
             for chan_id in chans_ids:
-                channel = Object(id=chan_id)
+                channel = Object(id=chan_id) # dummy object to pass chan id to send_message
                 msg = "One percent closer !\n`%s`" % progress.display_bar(40)
                 await client.send_message(channel, msg)
             oldProgress = progress.percent
-        await asyncio.sleep(delay) # task runs every 60 seconds
+        await asyncio.sleep(delay) # task runs every <delay> seconds
 
 
 client = Client()
@@ -175,10 +194,12 @@ async def on_message(message):
                 msg = "```%s```" % progress.display_goals()
             elif message.content.startswith('!ks info'):
                 msg = "```%s```" % progress.display_info()
+            elif message.content.startswith('!ks tiers'):
+                msg = "```%s```" % progress.display_tiers()
             elif message.content.startswith('!ks all'):
-                msg = "```%s\n\n%s\n\n%s```" % (progress.display_bar(20), progress.display_goals(), progress.display_info())
+                msg = "```%s\n\n%s\n\n%s\n\n%s```" % (progress.display_bar(20), progress.display_goals(), progress.display_info(), progress.display_tiers())
             elif message.content.startswith('!ks help'):
-                msg = "```Kickstarter commands:\n    !ks\n    !ks goals\n    !ks info\n    !ks all\n    !ks help```"
+                msg = "```Kickstarter commands:\n    !ks\n    !ks goals\n    !ks info\n    !ks tiers\n    !ks all\n    !ks help```"
             else:
                 msg = "Unknown command `%s`. Please see `!ks help`." % message.content
         await client.send_message(message.channel, msg)
@@ -196,5 +217,6 @@ if DEBUG:
     print(progress.display_bar(60))
     print(progress.display_goals())
     print(progress.display_info())
+    print(progress.display_tiers())
 else:
     client.run(getenv('DISCORD_TOKEN'))
